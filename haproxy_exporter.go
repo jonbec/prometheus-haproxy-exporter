@@ -329,15 +329,17 @@ func fetchUnixDir(u *url.URL, timeout time.Duration) func() (io.ReadCloser, erro
 			if !strings.HasPrefix(path.Base(file.Name()), "stats-") {
 				continue
 			}
+
+			path, _ := url.Parse("unix://" + u.Path + file.Name())
+			index := i
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
-				p, _ := url.Parse("unix://" + file.Name())
-				rc, err := fetchUnix(p, timeout)()
+				rc, err := fetchUnix(path, timeout)()
 				if err != nil {
 					panic(err)
 				}
-				reports[i] = rc
+				reports[index] = rc
 			}()
 		}
 		wg.Wait()
@@ -345,6 +347,7 @@ func fetchUnixDir(u *url.URL, timeout time.Duration) func() (io.ReadCloser, erro
 		cb := &ClosingBuffer{bytes.NewBuffer([]byte{})}
 		for _, report := range reports {
 			_, err := cb.ReadFrom(report)
+			report.Close()
 			if err != nil {
 				return nil, err
 			}
