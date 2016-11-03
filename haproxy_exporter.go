@@ -1,6 +1,7 @@
 package main
 
 import (
+	"bytes"
 	"encoding/csv"
 	"errors"
 	"flag"
@@ -12,6 +13,7 @@ import (
 	_ "net/http/pprof"
 	"net/url"
 	"os"
+	"path"
 	"sort"
 	"strconv"
 	"strings"
@@ -149,6 +151,8 @@ func NewExporter(uri string, selectedServerMetrics map[int]*prometheus.GaugeVec,
 		fetch = fetchHTTP(uri, timeout)
 	case "unix":
 		fetch = fetchUnix(u, timeout)
+	case "unix-dir":
+		fetch = fetchUnixDir(u, timeout)
 	default:
 		return nil, fmt.Errorf("unsupported scheme: %q", u.Scheme)
 	}
@@ -302,6 +306,56 @@ func fetchUnix(u *url.URL, timeout time.Duration) func() (io.ReadCloser, error) 
 	}
 }
 
+type ClosingBuffer struct {
+	*bytes.Buffer
+}
+
+func (cb *ClosingBuffer) Close() (err error) {
+	//we don't actually have to do anything here, since the buffer is
+	// just some data in memory and the error is initialized to no-error
+	return nil
+}
+
+func fetchUnixDir(u *url.URL, timeout time.Duration) func() (io.ReadCloser, error) {
+	return func() (io.ReadCloser, error) {
+		list, err := ioutil.ReadDir(u.Path)
+		reports := make([]io.ReadCloser, len(list))
+		if err != nil {
+			return nil, err
+		}
+
+		var wg sync.WaitGroup
+		for i, file := range list {
+			if !strings.HasPrefix(path.Base(file.Name()), "stats-") {
+				continue
+			}
+			wg.Add(1)
+			go func() {
+				defer wg.Done()
+				p, _ := url.Parse("unix://" + file.Name())
+				rc, err := fetchUnix(p, timeout)()
+				if err != nil {
+					panic(err)
+				}
+				reports[i] = rc
+			}()
+		}
+		wg.Wait()
+
+		cb := &ClosingBuffer{bytes.NewBuffer([]byte{})}
+		for _, report := range reports {
+			_, err := cb.ReadFrom(report)
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		var rc io.ReadCloser
+		rc = cb
+		return rc, nil
+	}
+}
+
 func (e *Exporter) scrape() {
 	e.totalScrapes.Inc()
 
@@ -419,7 +473,7 @@ func (e *Exporter) exportCsvFields(metrics map[int]*prometheus.GaugeVec, csvRow 
 				continue
 			}
 		}
-		metric.WithLabelValues(labels...).Set(float64(value))
+		metric.WithLabelValues(labels...).Add(float64(value))
 	}
 }
 
