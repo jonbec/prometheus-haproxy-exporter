@@ -30,7 +30,7 @@ const (
 	// # pxname,svname,qcur,qmax,scur,smax,slim,stot,bin,bout,dreq,dresp,ereq,econ,eresp,wretr,wredis,status,weight,act,bck,chkfail,chkdown,lastchg,downtime,qlimit,pid,iid,sid,throttle,lbtot,tracked,type,rate,rate_lim,rate_max,check_status,check_code,check_duration,hrsp_1xx,hrsp_2xx,hrsp_3xx,hrsp_4xx,hrsp_5xx,hrsp_other,hanafail,req_rate,req_rate_max,req_tot,cli_abrt,srv_abrt,
 	// HAProxy 1.5
 	// pxname,svname,qcur,qmax,scur,smax,slim,stot,bin,bout,dreq,dresp,ereq,econ,eresp,wretr,wredis,status,weight,act,bck,chkfail,chkdown,lastchg,downtime,qlimit,pid,iid,sid,throttle,lbtot,tracked,type,rate,rate_lim,rate_max,check_status,check_code,check_duration,hrsp_1xx,hrsp_2xx,hrsp_3xx,hrsp_4xx,hrsp_5xx,hrsp_other,hanafail,req_rate,req_rate_max,req_tot,cli_abrt,srv_abrt,comp_in,comp_out,comp_byp,comp_rsp,lastsess,
-	expectedCsvFieldCount = 52
+	expectedCsvFieldCount = 62
 	statusField           = 17
 )
 
@@ -117,6 +117,10 @@ var (
 		42: newServerMetric("http_responses_total", "Total of HTTP responses.", prometheus.Labels{"code": "4xx"}),
 		43: newServerMetric("http_responses_total", "Total of HTTP responses.", prometheus.Labels{"code": "5xx"}),
 		44: newServerMetric("http_responses_total", "Total of HTTP responses.", prometheus.Labels{"code": "other"}),
+		58: newServerMetric("queue_time_avg", "Average queue time.", nil),
+		59: newServerMetric("connect_time_avg", "Average connect time.", nil),
+		60: newServerMetric("request_time_avg", "Average request time.", nil),
+		61: newServerMetric("total_time_avg", "Averega total time.", nil),
 	}
 )
 
@@ -185,7 +189,12 @@ func NewExporter(uri string, selectedServerMetrics map[int]*prometheus.GaugeVec,
 			42: newFrontendMetric("http_responses_total", "Total of HTTP responses.", prometheus.Labels{"code": "4xx"}),
 			43: newFrontendMetric("http_responses_total", "Total of HTTP responses.", prometheus.Labels{"code": "5xx"}),
 			44: newFrontendMetric("http_responses_total", "Total of HTTP responses.", prometheus.Labels{"code": "other"}),
+			46: newFrontendMetric("request_rate", "Requests last second.", nil),
 			48: newFrontendMetric("http_requests_total", "Total HTTP requests.", nil),
+			58: newFrontendMetric("queue_time_avg", "Average queue time.", nil),
+			59: newFrontendMetric("connect_time_avg", "Average connect time.", nil),
+			60: newFrontendMetric("request_time_avg", "Average request time.", nil),
+			61: newFrontendMetric("total_time_avg", "Averega total time.", nil),
 		},
 		backendMetrics: map[int]*prometheus.GaugeVec{
 			2:  newBackendMetric("current_queue", "Current number of queued requests not assigned to any server.", nil),
@@ -210,6 +219,10 @@ func NewExporter(uri string, selectedServerMetrics map[int]*prometheus.GaugeVec,
 			42: newBackendMetric("http_responses_total", "Total of HTTP responses.", prometheus.Labels{"code": "4xx"}),
 			43: newBackendMetric("http_responses_total", "Total of HTTP responses.", prometheus.Labels{"code": "5xx"}),
 			44: newBackendMetric("http_responses_total", "Total of HTTP responses.", prometheus.Labels{"code": "other"}),
+			58: newBackendMetric("queue_time_avg", "Average queue time.", nil),
+			59: newBackendMetric("connect_time_avg", "Average connect time.", nil),
+			60: newBackendMetric("request_time_avg", "Average request time.", nil),
+			61: newBackendMetric("total_time_avg", "Averega total time.", nil),
 		},
 		serverMetrics: selectedServerMetrics,
 	}, nil
